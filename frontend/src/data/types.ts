@@ -5,7 +5,9 @@ export type EntryRow = {
   status: string
   pending: boolean
   abnormal: boolean
-  [field: string]: string | number | boolean
+  // 乐观锁版本号：每次状态流转/保存/删除推进一次，用于并发终态仲裁与快照固化。
+  _version?: number
+  [field: string]: string | number | boolean | undefined
 }
 
 export type ModuleMeta = {

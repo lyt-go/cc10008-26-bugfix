@@ -18,6 +18,7 @@ const Formfield = () => import('@/views/formfield/index.vue')
 const Clickstream = () => import('@/views/clickstream/index.vue')
 const Retention = () => import('@/views/retention/index.vue')
 const Dataview = () => import('@/views/dataview/index.vue')
+const ShareEntry = () => import('@/views/share/index.vue')
 const Paramdef = () => import('@/views/paramdef/index.vue')
 
 const router = createRouter({
@@ -41,6 +42,7 @@ const router = createRouter({
     { path: '/clickstream', name: 'clickstream', component: Clickstream },
     { path: '/retention', name: 'retention', component: Retention },
     { path: '/dataview', name: 'dataview', component: Dataview },
+    { path: '/share', name: 'share', component: ShareEntry },
     { path: '/paramdef', name: 'paramdef', component: Paramdef },
   ],
 })

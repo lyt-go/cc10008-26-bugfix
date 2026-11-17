@@ -1,9 +1,15 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { notifyRetentionChanged } from '@/api/view-service'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
 const NEGATIVE_ACTIONS = ['撤销', '作废', '拒绝', '驳回', '停用', '忽略', '下线', '回滚']
+
+function rowVersion(row: EntryRow): number {
+  const version = Number(row._version ?? 1)
+  return Number.isFinite(version) && version > 0 ? version : 1
+}
 
 export function moduleMeta(key: string): ModuleMeta {
   const meta = MODULE_BY_KEY.get(key)
@@ -34,6 +40,14 @@ export function runAction(key: string, id: number, action: string): ActionResult
   if (!target) {
     return { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
   }
+  // 数据视图的状态流转必须走 view-service 的删除传播与并发仲裁，
+  // 这里只保留拒绝入口，避免页面绕过终态仲裁直接改状态。
+  if (key === 'dataview') {
+    return {
+      ok: false,
+      message: '数据视图动作必须经过删除传播与并发仲裁入口，通用状态流转已拒绝',
+    }
+  }
   const rows = listRows(key)
   const index = rows.findIndex((row) => Number(row.id) === id)
   if (index < 0) {
@@ -49,10 +63,17 @@ export function runAction(key: string, id: number, action: string): ActionResult
     status: target,
     pending: target !== lastStatus,
     abnormal: NEGATIVE_ACTIONS.some((verb) => action.startsWith(verb)),
+    // 每次状态流转推进乐观版本号，供并发冲突仲裁与快照固化引用。
+    _version: rowVersion(rows[index]) + 1,
   }
   const next = [...rows]
   next[index] = updated
   saveRows(key, next)
+  // 回访模式流转后触发漂移复核：固化快照里的流失周期/曲线若失效，
+  // 回访曲线、回访模式、回访视图快照一起进入复核数据流。
+  if (key === 'retention') {
+    notifyRetentionChanged()
+  }
   return { ok: true, message: `${meta.entity}已${action}，当前状态「${target}」` }
 }
 
